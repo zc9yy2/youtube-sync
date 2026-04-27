@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0f172a">
+  <title>YouTube 同期</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #273549;
+      --border: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #ef4444;
+      --green: #22c55e;
+      --orange: #f97316;
+      --radius: 12px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: calc(12px + var(--safe-top)) 16px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-title {
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+
+    .status-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      color: var(--muted);
+    }
+
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .status-dot.green  { background: var(--green); }
+    .status-dot.orange { background: var(--orange); animation: pulse 1.5s infinite; }
+    .status-dot.red    { background: var(--accent); }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.4; }
+    }
+
+    .icon-btn {
+      background: rgba(255,255,255,0.08);
+      border: none; color: var(--text); cursor: pointer;
+      width: 36px; height: 36px; border-radius: 10px;
+      font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .icon-btn:active { background: rgba(255,255,255,0.18); }
+
+    .player-section { background: #000; }
+
+    .player-wrapper {
+      position: relative;
+      padding-bottom: 56.25%;
+      height: 0;
+      background: #000;
+    }
+
+    .player-wrapper #yt-player {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+
+    .player-placeholder {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .play-icon { font-size: 3rem; opacity: 0.3; }
+
+    main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 16px;
+      padding-bottom: calc(16px + var(--safe-bottom));
+    }
+
+    .add-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .add-input {
+      flex: 1;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 13px;
+      font-size: 0.9rem;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .add-input:focus { border-color: var(--accent); }
+    .add-input::placeholder { color: var(--muted); }
+
+    .add-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 0 16px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .add-btn:active { opacity: 0.8; }
+
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+
+    .video-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .video-item {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border: 1.5px solid transparent;
+    }
+    .video-item:active { background: var(--surface2); }
+    .video-item.active { border-color: var(--accent); }
+
+    .video-thumb {
+      width: 80px;
+      height: 45px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .video-info { flex: 1; min-width: 0; }
+
+    .video-title {
+      font-size: 0.88rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .video-id {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .del-btn {
+      background: none;
+      border: none;
+      color: var(--border);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      transition: color 0.15s;
+      line-height: 1;
+    }
+    .del-btn:active { color: var(--accent); }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.88rem;
+      padding: 32px 0;
+    }
+
+    .overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 100;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 24px 20px calc(20px + var(--safe-bottom));
+      width: 100%;
+      max-width: 640px;
+      max-height: 80dvh;
+      overflow-y: auto;
+    }
+
+    .modal-handle {
+      width: 40px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 0 auto 20px;
+    }
+
+    .modal h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .modal label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 5px;
+      margin-top: 14px;
+    }
+
+    .modal-input {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 13px;
+      font-size: 0.9rem;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .modal-input:focus { border-color: var(--accent); }
+
+    .setup-box {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+    .setup-box strong { display: block; margin-bottom: 6px; color: var(--text); font-size: 0.82rem; }
+    .setup-box ol { padding-left: 18px; }
+    .setup-box a { color: #60a5fa; }
+
+    .modal-footer {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      height: 48px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:active { opacity: 0.85; }
+
+    .btn-ghost {
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      border: none;
+      border-radius: 10px;
+      height: 48px;
+      padding: 0 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-ghost:active { background: rgba(255,255,255,0.15); }
+
+    .toast {
+      position: fixed;
+      bottom: calc(24px + var(--safe-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 10px 18px;
+      border-radius: 9px;
+      font-size: 0.88rem;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">▶ YouTube 同期</div>
+  <div class="header-right">
+    <div class="status-badge" id="statusBadge">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">未接続</span>
+    </div>
+    <button class="icon-btn" onclick="openSettings()">⚙️</button>
+  </div>
+</header>
+
+<div class="player-section">
+  <div class="player-wrapper">
+    <div class="player-placeholder" id="playerPlaceholder">
+      <div class="play-icon">▶</div>
+      <div>下のリストから動画を選択してください</div>
+    </div>
+    <div id="yt-player"></div>
+  </div>
+</div>
+
+<main>
+  <div class="add-row">
+    <input class="add-input" type="text" id="urlInput" placeholder="YouTube URL を貼り付けて追加" onkeydown="if(event.key==='Enter')addVideo()">
+    <button class="add-btn" onclick="addVideo()">追加</button>
+  </div>
+
+  <div class="section-title">動画リスト</div>
+  <div class="video-list" id="videoList">
+    <div class="empty">動画が登録されていません</div>
+  </div>
+</main>
+
+<div class="overlay" id="settingsModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>⚙️ Firebase 設定</h2>
+
+    <label>API Key</label>
+    <input class="modal-input" type="text" id="cfgApiKey" placeholder="AIzaSy..." autocomplete="off">
+
+    <label>Database URL</label>
+    <input class="modal-input" type="text" id="cfgDbUrl" placeholder="https://xxx-default-rtdb.firebaseio.com">
+
+    <label>Project ID</label>
+    <input class="modal-input" type="text" id="cfgProjectId" placeholder="my-project-12345">
+
+    <div class="setup-box">
+      <strong>初回セットアップ手順（1回だけ）</strong>
+      <ol>
+        <li><a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a> でプロジェクトを作成</li>
+        <li>「Realtime Database」→「データベースを作成」→ <strong>テストモード</strong> で開始</li>
+        <li>プロジェクト設定 →「ウェブアプリを追加」→ config の3項目を確認</li>
+        <li>上記3項目を貼り付けて「保存」</li>
+        <li>全デバイスで同じURLを開けば自動同期開始</li>
+      </ol>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeSettings()">キャンセル</button>
+      <button class="btn-primary" onclick="saveSettings()">保存して接続</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+  let myId = localStorage.getItem('yt_device_id');
+  if (!myId) {
+    myId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    localStorage.setItem('yt_device_id', myId);
+  }
+
+  let player       = null;
+  let db           = null;
+  let sessionRef   = null;
+  let videosRef    = null;
+  let currentVid   = null;
+  let isSyncing    = false;
+  let syncTimer    = null;
+  let pendingState = null;
+  let videos       = {};
+
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player('yt-player', {
+      height: '100%',
+      width: '100%',
+      playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+      events: {
+        onReady: onPlayerReady,
+        onStateChange: onPlayerStateChange
+      }
+    });
+  }
+
+  function onPlayerReady() {
+    document.getElementById('playerPlaceholder').style.display = 'none';
+    if (sessionRef) {
+      sessionRef.once('value').then(snap => {
+        if (snap.val()) applySession(snap.val(), true);
+      });
+    }
+  }
+
+  function setSyncing(ms = 800) {
+    isSyncing = true;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => { isSyncing = false; }, ms);
+  }
+
+  function onPlayerStateChange(event) {
+    if (isSyncing) return;
+
+    const S = YT.PlayerState;
+
+    if (event.data === S.PLAYING) {
+      if (pendingState === 'paused') {
+        pendingState = null;
+        setSyncing();
+        player.pauseVideo();
+        return;
+      }
+      writeSession('playing', player.getCurrentTime());
+    } else if (event.data === S.PAUSED) {
+      writeSession('paused', player.getCurrentTime());
+    }
+  }
+
+  function loadConfig() {
+    try { return JSON.parse(localStorage.getItem('yt_fb_config') || 'null'); }
+    catch { return null; }
+  }
+
+  function initFirebase(config) {
+    const doInit = () => startFb(config);
+    if (firebase.apps.length > 0) {
+      firebase.app().delete().then(doInit).catch(doInit);
+    } else {
+      doInit();
+    }
+  }
+
+  function startFb(config) {
+    try {
+      firebase.initializeApp(config);
+      db         = firebase.database();
+      sessionRef = db.ref('/yt-sync/session');
+      videosRef  = db.ref('/yt-sync/videos');
+
+      sessionRef.on('value', snap => {
+        if (snap.val()) applySession(snap.val(), false);
+      });
+
+      videosRef.on('value', snap => {
+        videos = snap.val() || {};
+        renderVideoList();
+      });
+
+      setStatus('green', '接続済み');
+
+      if (player && typeof player.getPlayerState === 'function') {
+        sessionRef.once('value').then(snap => {
+          if (snap.val()) applySession(snap.val(), true);
+        });
+      }
+    } catch(e) {
+      setStatus('red', 'エラー');
+      showToast('Firebase接続エラー: ' + e.message.slice(0, 40));
+    }
+  }
+
+  function writeSession(state, time, videoId) {
+    if (!sessionRef) return;
+    sessionRef.set({
+      videoId: videoId || currentVid,
+      state,
+      time: Math.floor(time),
+      updatedBy: myId,
+      updatedAt: Date.now()
+    });
+  }
+
+  function applySession(data, isInit) {
+    if (!data) return;
+    if (!isInit && data.updatedBy === myId) return;
+    if (!player || typeof player.getPlayerState !== 'function') return;
+
+    setSyncing();
+
+    if (data.videoId !== currentVid) {
+      currentVid   = data.videoId;
+      pendingState = (data.state === 'paused') ? 'paused' : null;
+      player.loadVideoById({ videoId: data.videoId, startSeconds: data.time || 0 });
+      updateActiveVideo(data.videoId);
+      return;
+    }
+
+    const diff = Math.abs((player.getCurrentTime() || 0) - (data.time || 0));
+    if (diff > 2) player.seekTo(data.time, true);
+
+    if (data.state === 'playing') player.playVideo();
+    else if (data.state === 'paused') player.pauseVideo();
+  }
+
+  function extractVideoId(url) {
+    const m = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+
+  async function addVideo() {
+    const input = document.getElementById('urlInput');
+    const url   = input.value.trim();
+    const vid   = extractVideoId(url);
+
+    if (!vid) { showToast('有効なYouTube URLを入力してください'); return; }
+    if (!videosRef) { showToast('先にFirebase設定を完了してください'); openSettings(); return; }
+    if (Object.values(videos).some(v => v.videoId === vid)) { showToast('すでに登録済みです'); return; }
+
+    let title = vid;
+    const thumb = `https://img.youtube.com/vi/${vid}/mqdefault.jpg`;
+
+    try {
+      const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`);
+      if (res.ok) title = (await res.json()).title;
+    } catch {}
+
+    await videosRef.push({ videoId: vid, title, thumb, addedAt: Date.now() });
+    input.value = '';
+    showToast('追加しました');
+  }
+
+  function selectVideo(videoId) {
+    if (!player || typeof player.loadVideoById !== 'function') {
+      showToast('プレイヤーの準備中です');
+      return;
+    }
+    if (!sessionRef) { showToast('先にFirebase設定を完了してください'); openSettings(); return; }
+    currentVid   = videoId;
+    pendingState = null;
+    player.loadVideoById({ videoId, startSeconds: 0 });
+    updateActiveVideo(videoId);
+    writeSession('playing', 0, videoId);
+  }
+
+  function deleteVideo(fbKey) {
+    if (!videosRef) return;
+    videosRef.child(fbKey).remove();
+  }
+
+  function updateActiveVideo(videoId) {
+    document.querySelectorAll('.video-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.vid === videoId);
+    });
+  }
+
+  function renderVideoList() {
+    const list = document.getElementById('videoList');
+    const keys = Object.keys(videos).sort((a, b) => (videos[b].addedAt || 0) - (videos[a].addedAt || 0));
+
+    if (keys.length === 0) {
+      list.innerHTML = '<div class="empty">動画が登録されていません</div>';
+      return;
+    }
+
+    list.innerHTML = keys.map(key => {
+      const v = videos[key];
+      return `
+        <div class="video-item${v.videoId === currentVid ? ' active' : ''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')">
+          <img class="video-thumb" src="${esc(v.thumb)}" alt="" loading="lazy">
+          <div class="video-info">
+            <div class="video-title">${esc(v.title)}</div>
+            <div class="video-id">${esc(v.videoId)}</div>
+          </div>
+          <button class="del-btn" onclick="event.stopPropagation();deleteVideo('${esc(key)}')">✕</button>
+        </div>`;
+    }).join('');
+  }
+
+  function openSettings() {
+    const cfg = loadConfig() || {};
+    document.getElementById('cfgApiKey').value    = cfg.apiKey || '';
+    document.getElementById('cfgDbUrl').value     = cfg.databaseURL || '';
+    document.getElementById('cfgProjectId').value = cfg.projectId || '';
+    document.getElementById('settingsModal').classList.add('open');
+  }
+
+  function closeSettings() {
+    document.getElementById('settingsModal').classList.remove('open');
+  }
+
+  function saveSettings() {
+    const apiKey    = document.getElementById('cfgApiKey').value.trim();
+    const dbUrl     = document.getElementById('cfgDbUrl').value.trim();
+    const projectId = document.getElementById('cfgProjectId').value.trim();
+
+    if (!apiKey || !dbUrl || !projectId) { showToast('すべての項目を入力してください'); return; }
+
+    const config = { apiKey, databaseURL: dbUrl, projectId };
+    localStorage.setItem('yt_fb_config', JSON.stringify(config));
+    closeSettings();
+    initFirebase(config);
+    showToast('接続しました');
+  }
+
+  document.getElementById('settingsModal').addEventListener('click', function(e) {
+    if (e.target === this) closeSettings();
+  });
+
+  function setStatus(color, text) {
+    document.getElementById('statusDot').className = 'status-dot' + (color ? ' ' + color : '');
+    document.getElementById('statusText').textContent = text;
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  const cfg = loadConfig();
+  if (cfg) {
+    initFirebase(cfg);
+  } else {
+    setStatus('', '未設定');
+    setTimeout(openSettings, 600);
+  }
+</script>
+</body>
+</html>
