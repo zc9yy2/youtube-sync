@@ -573,7 +573,9 @@
   }
 
   function extractVideoId(url) {
-    const m = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+    const s = url.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+    const m = s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([a-zA-Z0-9_-]{11})/);
     return m ? m[1] : null;
   }
 
