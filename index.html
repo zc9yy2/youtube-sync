@@ -9,6 +9,7 @@
   <title>YouTube 同期</title>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -513,6 +514,7 @@
   function startFb(config) {
     try {
       firebase.initializeApp(config);
+      firebase.auth().signInAnonymously().catch(e => log('auth error: ' + e.message));
       db         = firebase.database();
       sessionRef = db.ref('/yt-sync/session');
       videosRef  = db.ref('/yt-sync/videos');
