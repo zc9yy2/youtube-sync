@@ -126,6 +126,59 @@
 
     .play-icon { font-size: 3rem; opacity: 0.3; }
 
+    .volume-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .vol-btn {
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 2px 4px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .vol-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+    .vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    .vol-slider::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+    }
+
+    .vol-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      width: 28px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
     main {
       max-width: 640px;
       margin: 0 auto;
@@ -386,6 +439,11 @@
     </div>
     <div id="yt-player"></div>
   </div>
+  <div class="volume-bar">
+    <button class="vol-btn" id="muteBtn" onclick="toggleMute()">🔊</button>
+    <input class="vol-slider" type="range" id="volSlider" min="0" max="100" value="100" oninput="setVolume(this.value)">
+    <span class="vol-label" id="volLabel">100</span>
+  </div>
 </div>
 
 <main>
@@ -466,6 +524,7 @@
 
   function onPlayerReady() {
     document.getElementById('playerPlaceholder').style.display = 'none';
+    restoreVolume();
     if (sessionRef) {
       sessionRef.once('value').then(snap => {
         if (snap.val()) applySession(snap.val(), true);
@@ -702,6 +761,43 @@
     t.textContent = msg;
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  function setVolume(val) {
+    const v = parseInt(val);
+    if (player && typeof player.setVolume === 'function') {
+      player.setVolume(v);
+      if (v === 0) player.mute();
+      else player.unMute();
+    }
+    document.getElementById('volLabel').textContent = v;
+    document.getElementById('muteBtn').textContent = v === 0 ? '🔇' : v < 50 ? '🔉' : '🔊';
+    localStorage.setItem('yt_volume', v);
+  }
+
+  function toggleMute() {
+    if (!player || typeof player.isMuted !== 'function') return;
+    if (player.isMuted()) {
+      const saved = parseInt(localStorage.getItem('yt_volume') || '100');
+      player.unMute();
+      player.setVolume(saved);
+      document.getElementById('volSlider').value = saved;
+      document.getElementById('volLabel').textContent = saved;
+      document.getElementById('muteBtn').textContent = saved < 50 ? '🔉' : '🔊';
+    } else {
+      player.mute();
+      document.getElementById('volSlider').value = 0;
+      document.getElementById('volLabel').textContent = 0;
+      document.getElementById('muteBtn').textContent = '🔇';
+    }
+  }
+
+  function restoreVolume() {
+    const saved = parseInt(localStorage.getItem('yt_volume') || '100');
+    document.getElementById('volSlider').value = saved;
+    document.getElementById('volLabel').textContent = saved;
+    document.getElementById('muteBtn').textContent = saved === 0 ? '🔇' : saved < 50 ? '🔉' : '🔊';
+    if (player && typeof player.setVolume === 'function') player.setVolume(saved);
   }
 
   const cfg = loadConfig();
