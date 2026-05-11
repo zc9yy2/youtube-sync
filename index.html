@@ -55,7 +55,7 @@
       gap: 8px;
     }
 
-    .header-right { display: flex; align-items: center; gap: 10px; }
+    .header-right { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end; }
 
     .status-badge {
       font-size: 0.72rem;
@@ -147,7 +147,8 @@
     }
 
     .vol-slider {
-      flex: 1;
+      width: 80px;
+      flex-shrink: 0;
       -webkit-appearance: none;
       appearance: none;
       height: 4px;
@@ -423,6 +424,9 @@
 <header>
   <div class="header-title">▶ YouTube 同期</div>
   <div class="header-right">
+    <button class="vol-btn" id="muteBtn" onclick="toggleMute()">🔊</button>
+    <input class="vol-slider" type="range" id="volSlider" min="0" max="100" value="100" oninput="setVolume(this.value)">
+    <span class="vol-label" id="volLabel">100</span>
     <div class="status-badge" id="statusBadge">
       <div class="status-dot" id="statusDot"></div>
       <span id="statusText">未接続</span>
@@ -438,11 +442,6 @@
       <div>下のリストから動画を選択してください</div>
     </div>
     <div id="yt-player"></div>
-  </div>
-  <div class="volume-bar">
-    <button class="vol-btn" id="muteBtn" onclick="toggleMute()">🔊</button>
-    <input class="vol-slider" type="range" id="volSlider" min="0" max="100" value="100" oninput="setVolume(this.value)">
-    <span class="vol-label" id="volLabel">100</span>
   </div>
 </div>
 
