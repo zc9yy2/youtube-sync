@@ -572,35 +572,29 @@
   function startFb(config) {
     try {
       firebase.initializeApp(config);
-      db = firebase.database();
-      setStatus('orange', '認証中...');
+      db         = firebase.database();
+      sessionRef = db.ref('/yt-sync/session');
+      videosRef  = db.ref('/yt-sync/videos');
 
-      firebase.auth().signInAnonymously()
-        .then(() => {
-          sessionRef = db.ref('/yt-sync/session');
-          videosRef  = db.ref('/yt-sync/videos');
+      sessionRef.on('value', snap => {
+        if (snap.val()) applySession(snap.val(), false);
+      });
 
-          sessionRef.on('value', snap => {
-            if (snap.val()) applySession(snap.val(), false);
-          });
+      videosRef.on('value', snap => {
+        videos = snap.val() || {};
+        renderVideoList();
+      }, e => {
+        setStatus('red', 'エラー');
+        showToast('DB読み込みエラー: ' + e.message.slice(0, 50));
+      });
 
-          videosRef.on('value', snap => {
-            videos = snap.val() || {};
-            renderVideoList();
-          });
+      setStatus('green', '接続済み');
 
-          setStatus('green', '接続済み');
-
-          if (player && typeof player.getPlayerState === 'function') {
-            sessionRef.once('value').then(snap => {
-              if (snap.val()) applySession(snap.val(), true);
-            });
-          }
-        })
-        .catch(e => {
-          setStatus('red', 'エラー');
-          showToast('認証エラー: ' + e.message.slice(0, 60));
+      if (player && typeof player.getPlayerState === 'function') {
+        sessionRef.once('value').then(snap => {
+          if (snap.val()) applySession(snap.val(), true);
         });
+      }
     } catch(e) {
       setStatus('red', 'エラー');
       showToast('Firebase接続エラー: ' + e.message.slice(0, 40));
