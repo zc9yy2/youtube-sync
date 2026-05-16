@@ -664,9 +664,13 @@
       if (res.ok) title = (await res.json()).title;
     } catch {}
 
-    await videosRef.push({ videoId: vid, title, thumb, addedAt: Date.now() });
-    input.value = '';
-    showToast('追加しました');
+    try {
+      await videosRef.push({ videoId: vid, title, thumb, addedAt: Date.now() });
+      input.value = '';
+      showToast('追加しました');
+    } catch(e) {
+      showToast('追加失敗: ' + e.message.slice(0, 50));
+    }
   }
 
   function selectVideo(videoId) {
