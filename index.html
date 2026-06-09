@@ -702,14 +702,15 @@
 
     list.innerHTML = keys.map(key => {
       const v = videos[key];
+      const safeVid = String(v.videoId || '').replace(/[^a-zA-Z0-9_-]/g, '');
       return `
-        <div class="video-item${v.videoId === currentVid ? ' active' : ''}" data-vid="${v.videoId}" onclick="selectVideo('${v.videoId}')">
+        <div class="video-item${safeVid === currentVid ? ' active' : ''}" data-vid="${safeVid}" onclick="selectVideo('${safeVid}')">
           <img class="video-thumb" src="${esc(v.thumb)}" alt="" loading="lazy">
           <div class="video-info">
             <div class="video-title">${esc(v.title)}</div>
-            <div class="video-id">${esc(v.videoId)}</div>
+            <div class="video-id">${safeVid}</div>
           </div>
-          <button class="del-btn" onclick="event.stopPropagation();deleteVideo('${esc(key)}')">✕</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteVideo('${esc(key).replace(/'/g, '')}')">✕</button>
         </div>`;
     }).join('');
   }
